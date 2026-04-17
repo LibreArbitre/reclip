@@ -173,6 +173,8 @@ def get_info():
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        print(f"[DEBUG] yt-dlp returncode: {result.returncode}")
+        print(f"[DEBUG] yt-dlp stderr (last 200): {result.stderr.strip()[-200:]}")
         if cookie_path:
             _cleanup_cookie(cookie_path)
         if result.returncode != 0:

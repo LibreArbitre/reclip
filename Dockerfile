@@ -8,6 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install latest yt-dlp from GitHub (PyPI is often outdated)
+RUN pip install --no-cache-dir --upgrade https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz
+
 COPY . .
 
 EXPOSE 8899

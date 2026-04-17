@@ -159,6 +159,10 @@ def get_info():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
+    cmd = ["yt-dlp", "--version"]
+    ver = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    print(f"[DEBUG] yt-dlp version: {ver.stdout.strip()}")
+
     cmd = ["yt-dlp", "--no-playlist", "-j", url]
     cookie_content = data.get("cookie")
     print(f"[DEBUG] get_info cookie provided: {bool(cookie_content)}, length: {len(cookie_content) if cookie_content else 0}")

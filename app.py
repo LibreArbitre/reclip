@@ -100,7 +100,6 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cook
         if result.returncode != 0:
             job["status"] = "error"
             job["error"] = result.stderr.strip().split("\n")[-1]
-            print(f"[ERROR] yt-dlp download failed: {result.stderr.strip()[-500:]}")
             return
 
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{job_id}.*"))

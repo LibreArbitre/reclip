@@ -154,20 +154,20 @@ def get_info():
 
         info = json.loads(result.stdout)
 
-        # Build quality options — group by height, keep best per height+codec
-        best_by_height = {}
+        # Build quality options — group by height+codec, keep best tbr per group
+        best_by_key = {}
         for f in info.get("formats", []):
             height = f.get("height")
-            if height and f.get("vcodec", "none") != "none":
-                key = height
+            vcodec = f.get("vcodec", "none")
+            if height and vcodec != "none":
+                codec_label = vcodec.split(".")[0]
+                key = (height, codec_label)
                 tbr = f.get("tbr") or 0
-                if key not in best_by_height or tbr > (best_by_height[key].get("tbr") or 0):
-                    best_by_height[key] = f
+                if key not in best_by_key or tbr > (best_by_key[key].get("tbr") or 0):
+                    best_by_key[key] = f
 
         formats = []
-        for height, f in sorted(best_by_height.items(), key=lambda x: x[0], reverse=True):
-            vcodec = f.get("vcodec", "none")
-            codec_label = vcodec.split(".")[0] if vcodec != "none" else ""
+        for (height, codec_label), f in sorted(best_by_key.items(), key=lambda x: (-x[0][0], x[0][1])):
             formats.append({
                 "id": f["format_id"],
                 "label": f"{height}p",

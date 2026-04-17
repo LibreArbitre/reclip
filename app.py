@@ -93,13 +93,6 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cook
 
     cmd.append(url)
 
-    print(f"[DEBUG] Download cmd: {' '.join(cmd)}")
-    if cookie_path:
-        with open(cookie_path) as f:
-            print(f"[DEBUG] Cookie file ({os.path.getsize(cookie_path)}b):\n{f.read()[:500]}")
-    else:
-        print("[DEBUG] No cookie provided for download")
-
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if cookie_path:
@@ -159,26 +152,16 @@ def get_info():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    cmd = ["yt-dlp", "--version"]
-    ver = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-    print(f"[DEBUG] yt-dlp version: {ver.stdout.strip()}")
-
     cmd = ["yt-dlp", "--no-playlist", "--remote-components", "ejs:npm", "-j", url]
     cookie_content = data.get("cookie")
-    print(f"[DEBUG] get_info cookie provided: {bool(cookie_content)}, length: {len(cookie_content) if cookie_content else 0}")
     cookie_path = None
     if cookie_content:
         cookie_path = _cookie_to_tmp(cookie_content)
-        print(f"[DEBUG] cookie_path: {cookie_path}")
         if cookie_path:
-            with open(cookie_path) as f:
-                print(f"[DEBUG] cookie file content (first 300):\n{f.read()[:300]}")
             cmd += ["--cookies", cookie_path]
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        print(f"[DEBUG] yt-dlp returncode: {result.returncode}")
-        print(f"[DEBUG] yt-dlp stderr (last 200): {result.stderr.strip()[-200:]}")
         if cookie_path:
             _cleanup_cookie(cookie_path)
         if result.returncode != 0:
@@ -220,26 +203,7 @@ def get_info():
         return jsonify({"error": str(e)}), 400
 
 
-@app.route("/api/debug_formats", methods=["POST"])
-def debug_formats():
-    data = request.json
-    url = data.get("url", "").strip()
-    cookie_content = data.get("cookie")
-    if not url:
-        return jsonify({"error": "No URL"}), 400
-    cmd = ["yt-dlp", "--no-playlist", "--remote-components", "ejs:npm", "-F", url]
-    cookie_path = None
-    if cookie_content:
-        cookie_path = _cookie_to_tmp(cookie_content)
-        if cookie_path:
-            cmd += ["--cookies", cookie_path]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if cookie_path:
-            _cleanup_cookie(cookie_path)
-        return jsonify({"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+@app.route("/api/download", methods=["POST"])
 def start_download():
     data = request.json
     url = data.get("url", "").strip()

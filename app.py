@@ -220,7 +220,26 @@ def get_info():
         return jsonify({"error": str(e)}), 400
 
 
-@app.route("/api/download", methods=["POST"])
+@app.route("/api/debug_formats", methods=["POST"])
+def debug_formats():
+    data = request.json
+    url = data.get("url", "").strip()
+    cookie_content = data.get("cookie")
+    if not url:
+        return jsonify({"error": "No URL"}), 400
+    cmd = ["yt-dlp", "--no-playlist", "-F", url]
+    cookie_path = None
+    if cookie_content:
+        cookie_path = _cookie_to_tmp(cookie_content)
+        if cookie_path:
+            cmd += ["--cookies", cookie_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if cookie_path:
+            _cleanup_cookie(cookie_path)
+        return jsonify({"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 def start_download():
     data = request.json
     url = data.get("url", "").strip()

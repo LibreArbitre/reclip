@@ -74,7 +74,7 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cook
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
-    cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
+    cmd = ["yt-dlp", "--no-playlist", "--remote-components", "ejs:npm", "-o", out_template]
 
     # Add cookies if provided
     cookie_path = None
@@ -163,7 +163,7 @@ def get_info():
     ver = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     print(f"[DEBUG] yt-dlp version: {ver.stdout.strip()}")
 
-    cmd = ["yt-dlp", "--no-playlist", "-j", url]
+    cmd = ["yt-dlp", "--no-playlist", "--remote-components", "ejs:npm", "-j", url]
     cookie_content = data.get("cookie")
     print(f"[DEBUG] get_info cookie provided: {bool(cookie_content)}, length: {len(cookie_content) if cookie_content else 0}")
     cookie_path = None
@@ -227,7 +227,7 @@ def debug_formats():
     cookie_content = data.get("cookie")
     if not url:
         return jsonify({"error": "No URL"}), 400
-    cmd = ["yt-dlp", "--no-playlist", "-F", url]
+    cmd = ["yt-dlp", "--no-playlist", "--remote-components", "ejs:npm", "-F", url]
     cookie_path = None
     if cookie_content:
         cookie_path = _cookie_to_tmp(cookie_content)

@@ -297,9 +297,7 @@
     .card-status.done { color: var(--success); }
     .card-status.error { color: var(--error); }
 
-    /* Quality + codec chips */
-    .format-rows { display: flex; flex-direction: column; gap: 4px; }
-    .format-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    /* Quality chips */
     .q-chip {
       padding: 4px 10px;
       border: 1.5px solid var(--card-border);
@@ -317,23 +315,6 @@
       background: rgba(26,26,24,0.04);
     }
     .q-chip:hover:not(.active) { border-color: var(--muted); }
-    .codec-chip {
-      padding: 2px 8px;
-      border: 1.5px solid var(--card-border);
-      border-radius: 5px;
-      background: transparent;
-      color: var(--muted);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.6rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .codec-chip.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(232, 93, 42, 0.06);
-    }
-    .codec-chip:hover:not(.active) { border-color: var(--muted); }
 
     /* Error card */
     .card.card-error {
@@ -624,39 +605,19 @@
       }
 
       // Quality chips with codec sub-row for video
-      let formatRows = '';
+      let formatChips = '';
       if (!isAudio && c.formats && c.formats.length > 1) {
-        // Group formats by height
-        const byHeight = {};
-        c.formats.forEach(f => {
-          if (!byHeight[f.height]) byHeight[f.height] = [];
-          byHeight[f.height].push(f);
-        });
-
-        const heights = Object.keys(byHeight).map(Number).sort((a, b) => b - a);
-        formatRows = '<div class="format-rows">';
-
-        heights.forEach(h => {
-          const formats = byHeight[h];
-          const primary = formats[0];
-          const isActive = primary.id === c.selectedFormatId;
-          formatRows += `<div class="format-row">`;
-          formatRows += `<button class="q-chip${isActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${primary.id}')">${primary.label}</button>`;
-          // Codec chips on same row if multiple codecs for this resolution
-          if (formats.length > 1) {
-            formats.forEach(f => {
-              const isCodecActive = f.id === c.selectedFormatId;
-              formatRows += `<button class="codec-chip${isCodecActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.codec}</button>`;
-            });
-          }
-          formatRows += `</div>`;
-        });
-        formatRows += '</div>';
+        const sorted = [...c.formats].sort((a, b) => b.height - a.height);
+        formatChips = sorted.map(f => {
+          const active = f.id === c.selectedFormatId ? ' active' : '';
+          const label = f.codec ? `${f.label} ${f.codec}` : f.label;
+          return `<button class="q-chip${active}" onclick="pickFormat(${idx}, '${f.id}')">${label}</button>`;
+        }).join('');
       }
 
       let actionHtml = '';
       if (c.status === 'ready') {
-        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${formatRows}`;
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${formatChips}`;
       } else if (c.status === 'downloading') {
         actionHtml = `<span class="card-status downloading"><span class="spin"></span> Downloading...</span>`;
       } else if (c.status === 'done') {

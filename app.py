@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 import glob
 import json
@@ -6,6 +7,10 @@ import subprocess
 import tempfile
 import threading
 from flask import Flask, request, jsonify, send_file, render_template
+
+# Force stdout/stderr flush for Docker logging
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 
 app = Flask(__name__)
 DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")

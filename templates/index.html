@@ -300,7 +300,6 @@
     /* Quality + codec chips */
     .format-rows { display: flex; flex-direction: column; gap: 4px; }
     .format-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-    .format-row + .format-row { margin-top: 2px; }
     .q-chip {
       padding: 4px 10px;
       border: 1.5px solid var(--card-border);
@@ -624,7 +623,7 @@
         thumbHtml = `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
       }
 
-      // Build quality rows with codec sub-chips for video
+      // Quality chips with codec sub-row for video
       let formatRows = '';
       if (!isAudio && c.formats && c.formats.length > 1) {
         // Group formats by height
@@ -639,19 +638,16 @@
 
         heights.forEach(h => {
           const formats = byHeight[h];
-          // Resolution chip (first format of this height = best quality)
           const primary = formats[0];
           const isActive = primary.id === c.selectedFormatId;
           formatRows += `<div class="format-row">`;
           formatRows += `<button class="q-chip${isActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${primary.id}')">${primary.label}</button>`;
-          // Codec chips on next line if multiple codecs for this resolution
+          // Codec chips on same row if multiple codecs for this resolution
           if (formats.length > 1) {
-            formatRows += `<div class="format-row">`;
             formats.forEach(f => {
               const isCodecActive = f.id === c.selectedFormatId;
               formatRows += `<button class="codec-chip${isCodecActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.codec}</button>`;
             });
-            formatRows += `</div>`;
           }
           formatRows += `</div>`;
         });

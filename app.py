@@ -25,16 +25,18 @@ def _cookie_to_tmp(cookie_content):
     try:
         parsed = json.loads(cookie_content)
         if isinstance(parsed, list):
-            lines = ["# Netscape HTTP Cookie File"]
+            lines = ["# Netscape HTTP Cookie File", ""]
             for c in parsed:
                 domain = c.get("domain", "")
-                flag = "TRUE" if c.get("hostOnly", not domain.startswith(".")) else "FALSE"
+                flag = "TRUE" if domain.startswith(".") else "FALSE"
                 path = c.get("path", "/")
                 secure = "TRUE" if c.get("secure", False) else "FALSE"
-                expiry = str(int(c.get("expirationDate", 0))) if c.get("expirationDate") else "0"
+                exp = c.get("expirationDate") or c.get("expiry") or 0
+                expiry = str(int(float(exp))) if exp else "0"
                 name = c.get("name", "")
                 value = c.get("value", "")
-                lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+                if domain and name:
+                    lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
             cookie_content = "\n".join(lines)
     except (json.JSONDecodeError, ValueError, KeyError):
         pass  # Not JSON, assume already Netscape format

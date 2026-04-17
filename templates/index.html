@@ -316,6 +316,33 @@
     }
     .q-chip:hover:not(.active) { border-color: var(--muted); }
 
+    /* Codec + format rows (vertical layout) */
+    .format-rows { display: flex; flex-direction: column; gap: 4px; }
+    .format-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .codec-sep {
+      font-size: 0.6rem;
+      color: var(--muted);
+      padding: 0 2px;
+      user-select: none;
+    }
+    .codec-chip {
+      padding: 2px 8px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .codec-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(232, 93, 42, 0.06);
+    }
+    .codec-chip:hover:not(.active) { border-color: var(--muted); }
+
     /* Error card */
     .card.card-error {
       border-color: rgba(196, 61, 61, 0.2);
@@ -607,12 +634,42 @@
       // Quality chips with codec sub-row for video
       let formatChips = '';
       if (!isAudio && c.formats && c.formats.length > 1) {
-        const sorted = [...c.formats].sort((a, b) => b.height - a.height);
-        formatChips = sorted.map(f => {
-          const active = f.id === c.selectedFormatId ? ' active' : '';
-          const label = f.codec ? `${f.label} ${f.codec}` : f.label;
-          return `<button class="q-chip${active}" onclick="pickFormat(${idx}, '${f.id}')">${label}</button>`;
-        }).join('');
+        // Check if any resolution has multiple codecs
+        const byHeight = {};
+        c.formats.forEach(f => {
+          if (!byHeight[f.height]) byHeight[f.height] = [];
+          byHeight[f.height].push(f);
+        });
+        const hasMultipleCodecs = Object.values(byHeight).some(fmts => fmts.length > 1);
+
+        if (hasMultipleCodecs) {
+          // Vertical layout: each resolution on its own row with codec chips
+          const heights = Object.keys(byHeight).map(Number).sort((a, b) => b - a);
+          formatChips = '<div class="format-rows">';
+          heights.forEach(h => {
+            const fmts = byHeight[h];
+            const primary = fmts[0];
+            const isActive = primary.id === c.selectedFormatId;
+            formatChips += `<div class="format-row">`;
+            formatChips += `<button class="q-chip${isActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${primary.id}')">${primary.label}</button>`;
+            if (fmts.length > 1) {
+              formatChips += `<span class="codec-sep">|</span>`;
+              fmts.forEach(f => {
+                const isCodecActive = f.id === c.selectedFormatId;
+                formatChips += `<button class="codec-chip${isCodecActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.codec}</button>`;
+              });
+            }
+            formatChips += `</div>`;
+          });
+          formatChips += '</div>';
+        } else {
+          // Horizontal flat layout: just resolution chips
+          const sorted = [...c.formats].sort((a, b) => b.height - a.height);
+          formatChips = sorted.map(f => {
+            const active = f.id === c.selectedFormatId ? ' active' : '';
+            return `<button class="q-chip${active}" onclick="pickFormat(${idx}, '${f.id}')">${f.label}</button>`;
+          }).join('');
+        }
       }
 
       let actionHtml = '';

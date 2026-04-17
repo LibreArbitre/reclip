@@ -88,6 +88,13 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cook
 
     cmd.append(url)
 
+    print(f"[DEBUG] Download cmd: {' '.join(cmd)}")
+    if cookie_path:
+        with open(cookie_path) as f:
+            print(f"[DEBUG] Cookie file ({os.path.getsize(cookie_path)}b):\n{f.read()[:500]}")
+    else:
+        print("[DEBUG] No cookie provided for download")
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if cookie_path:

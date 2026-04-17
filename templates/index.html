@@ -419,30 +419,30 @@
       line-height: 1.8;
     }
 
-    /* Cookie banner */
-    #cookieSection { margin-top: 12px; }
-    .cookie-banner {
+    /* Auth banner (uBlock-safe: no "cookie" in class/id names) */
+    #authSection { margin-top: 12px; }
+    .auth-banner {
       border: 1.5px solid rgba(232, 93, 42, 0.3);
       border-radius: var(--radius);
       background: rgba(232, 93, 42, 0.05);
       padding: 12px 16px;
     }
-    .cookie-banner-text {
+    .auth-banner-text {
       font-size: 0.72rem;
       color: var(--fg);
       margin-bottom: 8px;
       line-height: 1.5;
     }
-    .cookie-banner-text a {
+    .auth-banner-text a {
       color: var(--accent);
       text-decoration: underline;
     }
-    .cookie-upload-row {
+    .auth-upload-row {
       display: flex;
       gap: 8px;
       align-items: center;
     }
-    .cookie-upload-btn {
+    .auth-upload-btn {
       padding: 6px 14px;
       border: 1.5px solid var(--accent);
       border-radius: 7px;
@@ -453,8 +453,8 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .cookie-upload-btn:hover { background: rgba(232, 93, 42, 0.1); }
-    .cookie-clear-btn {
+    .auth-upload-btn:hover { background: rgba(232, 93, 42, 0.1); }
+    .auth-clear-btn {
       padding: 6px 14px;
       border: 1.5px solid var(--card-border);
       border-radius: 7px;
@@ -465,7 +465,7 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .cookie-clear-btn:hover { border-color: var(--muted); color: var(--fg); }
+    .auth-clear-btn:hover { border-color: var(--muted); color: var(--fg); }
 
     @media (max-width: 500px) {
       .brand h1 { font-size: 3rem; }
@@ -511,17 +511,17 @@
       </div>
     </div>
 
-    <div id="cookieSection" style="display:none">
-      <div class="cookie-banner">
-        <div class="cookie-banner-text">
-          <strong>Cookie required</strong> — This video needs authentication.
-          Cookies are stored in RAM only and deleted when you close this tab.
-          Never written to disk. &nbsp;<a href="https://github.com/LibreArbitre/reclip#cookies" target="_blank" rel="noopener">How to get a cookie</a>
+    <div id="authSection" style="display:none">
+      <div class="auth-banner">
+        <div class="auth-banner-text">
+          <strong>Auth required</strong> — This video needs authentication.
+          Session data is stored in RAM only and deleted when you close this tab.
+          Never written to disk. &nbsp;<a href="https://github.com/LibreArbitre/reclip#cookies" target="_blank" rel="noopener">How to export your session file</a>
         </div>
-        <div class="cookie-upload-row">
-          <input type="file" id="cookieFile" accept=".txt" style="display:none" onchange="handleCookieFile(this)">
-          <button class="cookie-upload-btn" onclick="document.getElementById('cookieFile').click()">Choose cookies.txt</button>
-          <button class="cookie-clear-btn" id="cookieClearBtn" onclick="clearCookies()">Clear</button>
+        <div class="auth-upload-row">
+          <input type="file" id="authFile" accept=".txt" style="display:none" onchange="handleAuthFile(this)">
+          <button class="auth-upload-btn" onclick="document.getElementById('authFile').click()">Choose session file</button>
+          <button class="auth-clear-btn" id="authClearBtn" onclick="clearAuth()">Clear</button>
         </div>
       </div>
     </div>
@@ -544,10 +544,8 @@
       document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentFormat = btn.dataset.format;
-      // Show/hide audio format picker
       document.getElementById('audioFormatSection').style.display =
         currentFormat === 'audio' ? 'block' : 'none';
-      // Re-render all cards to update view
       cardData.forEach((_, i) => renderCard(i));
     }
 
@@ -557,37 +555,40 @@
       currentAudioFormat = btn.dataset.audiofmt;
     }
 
-    function needsCookie(err) {
+    function needsAuth(err) {
       if (!err) return false;
       const lower = err.toLowerCase();
       return lower.includes('sign in') || lower.includes('cookies') || lower.includes('bot') || lower.includes('http error 403') || lower.includes('http error 401') || lower.includes('unavailable');
     }
 
-    function handleCookieFile(input) {
+    function handleAuthFile(input) {
       const file = input.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = e => {
         const text = e.target.result;
         if (text.includes('.youtube.com') || text.includes('youtube')) {
-          sessionStorage.setItem('yt_cookie', text);
-          document.getElementById('cookieClearBtn').style.display = 'inline-block';
-          document.querySelector('.cookie-banner-text strong').textContent = 'Cookie loaded';
+          sessionStorage.setItem('yt_auth', text);
+          document.getElementById('authClearBtn').style.display = 'inline-block';
+          document.querySelector('.auth-banner-text strong').textContent = 'Auth loaded';
+          // Auto-re-fetch if there are error cards
+          const hasErrors = cardData.some(c => c.status === 'info-error');
+          if (hasErrors) go();
         } else {
-          alert('This does not look like a YouTube cookie file.');
+          alert('This does not look like a valid session file.');
         }
       };
       reader.readAsText(file);
     }
 
-    function clearCookies() {
-      sessionStorage.removeItem('yt_cookie');
-      document.getElementById('cookieClearBtn').style.display = 'none';
-      document.querySelector('.cookie-banner-text strong').textContent = 'Cookie required';
+    function clearAuth() {
+      sessionStorage.removeItem('yt_auth');
+      document.getElementById('authClearBtn').style.display = 'none';
+      document.querySelector('.auth-banner-text strong').textContent = 'Auth required';
     }
 
-    function getCookie() {
-      return sessionStorage.getItem('yt_cookie') || null;
+    function getAuth() {
+      return sessionStorage.getItem('yt_auth') || null;
     }
 
     function parseUrls(text) {
@@ -630,24 +631,23 @@
 
       const btn = document.getElementById('goBtn');
       const container = document.getElementById('cards');
-      const cookieSection = document.getElementById('cookieSection');
+      const authSection = document.getElementById('authSection');
       btn.disabled = true;
       btn.textContent = 'Loading...';
       container.innerHTML = '';
       cardData = [];
-      cookieSection.style.display = 'none';
+      authSection.style.display = 'none';
 
-      // Restore cookie UI if cookie already loaded
-      if (getCookie()) {
-        document.getElementById('cookieClearBtn').style.display = 'inline-block';
-        document.querySelector('.cookie-banner-text strong').textContent = 'Cookie loaded';
+      if (getAuth()) {
+        document.getElementById('authClearBtn').style.display = 'inline-block';
+        document.querySelector('.auth-banner-text strong').textContent = 'Auth loaded';
       } else {
-        document.getElementById('cookieClearBtn').style.display = 'none';
-        document.querySelector('.cookie-banner-text strong').textContent = 'Cookie required';
+        document.getElementById('authClearBtn').style.display = 'none';
+        document.querySelector('.auth-banner-text strong').textContent = 'Auth required';
       }
 
-      let hasCookieError = false;
-      const cookie = getCookie();
+      let hasAuthError = false;
+      const auth = getAuth();
 
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
@@ -656,7 +656,7 @@
         renderCard(idx);
 
         try {
-          const body = cookie ? JSON.stringify({ url, cookie }) : JSON.stringify({ url });
+          const body = auth ? JSON.stringify({ url, cookie: auth }) : JSON.stringify({ url });
           const res = await fetch('/api/info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -664,8 +664,7 @@
           });
           const data = await res.json();
           if (data.error) {
-            console.log('API error:', data.error, '→ needsCookie:', needsCookie(data.error));
-          if (needsCookie(data.error)) hasCookieError = true;
+            if (needsAuth(data.error)) hasAuthError = true;
             cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.error };
           } else {
             cardData[idx] = {
@@ -680,15 +679,14 @@
             };
           }
         } catch (err) {
-          if (needsCookie(err.message)) hasCookieError = true;
+          if (needsAuth(err.message)) hasAuthError = true;
           cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
         }
         renderCard(idx);
       }
 
-      console.log('hasCookieError:', hasCookieError, '→ showing cookie section');
-      if (hasCookieError) {
-        cookieSection.style.display = 'block';
+      if (hasAuthError) {
+        authSection.style.display = 'block';
       }
 
       if (cardData.filter(c => c.status === 'ready').length > 1) {
@@ -750,10 +748,8 @@
         thumbHtml = `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
       }
 
-      // Quality chips with codec sub-row for video
       let formatChips = '';
       if (!isAudio && c.formats && c.formats.length > 1) {
-        // Check if any resolution has multiple codecs
         const byHeight = {};
         c.formats.forEach(f => {
           if (!byHeight[f.height]) byHeight[f.height] = [];
@@ -762,7 +758,6 @@
         const hasMultipleCodecs = Object.values(byHeight).some(fmts => fmts.length > 1);
 
         if (hasMultipleCodecs) {
-          // Vertical layout: each resolution on its own row with codec chips
           const heights = Object.keys(byHeight).map(Number).sort((a, b) => b - a);
           formatChips = '<div class="format-rows">';
           heights.forEach(h => {
@@ -782,7 +777,6 @@
           });
           formatChips += '</div>';
         } else {
-          // Horizontal flat layout: just resolution chips
           const sorted = [...c.formats].sort((a, b) => b.height - a.height);
           formatChips = sorted.map(f => {
             const active = f.id === c.selectedFormatId ? ' active' : '';

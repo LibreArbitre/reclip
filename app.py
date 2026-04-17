@@ -156,10 +156,14 @@ def get_info():
 
     cmd = ["yt-dlp", "--no-playlist", "-j", url]
     cookie_content = data.get("cookie")
+    print(f"[DEBUG] get_info cookie provided: {bool(cookie_content)}, length: {len(cookie_content) if cookie_content else 0}")
     cookie_path = None
     if cookie_content:
         cookie_path = _cookie_to_tmp(cookie_content)
+        print(f"[DEBUG] cookie_path: {cookie_path}")
         if cookie_path:
+            with open(cookie_path) as f:
+                print(f"[DEBUG] cookie file content (first 300):\n{f.read()[:300]}")
             cmd += ["--cookies", cookie_path]
 
     try:

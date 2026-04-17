@@ -840,6 +840,7 @@
             format_id: c.selectedFormatId,
             audio_format: currentAudioFormat,
             title: c.title || '',
+            cookie: getAuth(),
           }),
         });
         const data = await res.json();

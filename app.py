@@ -64,11 +64,18 @@ def _cleanup_cookie(path):
             pass
 
 
-def run_download(job_id, url, format_choice, format_id, audio_format="mp3"):
+def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cookie_content=None):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
     cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
+
+    # Add cookies if provided
+    cookie_path = None
+    if cookie_content:
+        cookie_path = _cookie_to_tmp(cookie_content)
+        if cookie_path:
+            cmd += ["--cookies", cookie_path]
 
     if format_choice == "audio":
         safe_audio_fmt = audio_format if audio_format in AUDIO_FORMATS else "mp3"
@@ -82,6 +89,8 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3"):
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if cookie_path:
+            _cleanup_cookie(cookie_path)
         if result.returncode != 0:
             job["status"] = "error"
             job["error"] = result.stderr.strip().split("\n")[-1]
@@ -112,7 +121,6 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3"):
         job["file"] = chosen
         ext = os.path.splitext(chosen)[1]
         title = job.get("title", "").strip()
-        # Sanitize title for filename
         if title:
             safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
             job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
@@ -145,6 +153,7 @@ def get_info():
         cookie_path = _cookie_to_tmp(cookie_content)
         if cookie_path:
             cmd += ["--cookies", cookie_path]
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if cookie_path:
@@ -196,6 +205,7 @@ def start_download():
     format_id = data.get("format_id")
     audio_format = data.get("audio_format", "mp3")
     title = data.get("title", "")
+    cookie_content = data.get("cookie")
 
     if not url:
         return jsonify({"error": "No URL provided"}), 400
@@ -206,7 +216,10 @@ def start_download():
     job_id = uuid.uuid4().hex[:10]
     jobs[job_id] = {"status": "downloading", "url": url, "title": title}
 
-    thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id, audio_format))
+    thread = threading.Thread(
+        target=run_download,
+        args=(job_id, url, format_choice, format_id, audio_format, cookie_content),
+    )
     thread.daemon = True
     thread.start()
 

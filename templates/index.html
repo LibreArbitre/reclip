@@ -141,6 +141,35 @@
     .fetch-btn:active { transform: scale(0.98); }
     .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+    /* Audio format picker */
+    #audioFormatSection {
+      display: none;
+      margin-top: 8px;
+    }
+    .audio-format-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .audio-fmt-btn {
+      padding: 5px 12px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .audio-fmt-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(232, 93, 42, 0.06);
+    }
+    .audio-fmt-btn:not(.active):hover { border-color: var(--muted); }
+
     /* Cards */
     .cards { margin-top: 24px; }
 
@@ -175,7 +204,6 @@
       object-fit: cover;
       display: block;
     }
-    /* No-thumbnail icon */
     .card-thumb .no-thumb {
       width: 100%;
       height: 100%;
@@ -190,7 +218,6 @@
       opacity: 0.5;
     }
 
-    /* Shimmer skeleton for loading state */
     .card-thumb.loading {
       background: var(--shimmer);
       background-size: 200% 100%;
@@ -270,6 +297,10 @@
     .card-status.done { color: var(--success); }
     .card-status.error { color: var(--error); }
 
+    /* Quality + codec chips */
+    .format-rows { display: flex; flex-direction: column; gap: 4px; }
+    .format-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .format-row + .format-row { margin-top: 2px; }
     .q-chip {
       padding: 4px 10px;
       border: 1.5px solid var(--card-border);
@@ -287,6 +318,23 @@
       background: rgba(26,26,24,0.04);
     }
     .q-chip:hover:not(.active) { border-color: var(--muted); }
+    .codec-chip {
+      padding: 2px 8px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .codec-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(232, 93, 42, 0.06);
+    }
+    .codec-chip:hover:not(.active) { border-color: var(--muted); }
 
     /* Error card */
     .card.card-error {
@@ -364,7 +412,6 @@
       line-height: 1.8;
     }
 
-    /* Mobile */
     @media (max-width: 500px) {
       .brand h1 { font-size: 3rem; }
       .page { padding: 40px 16px 60px; }
@@ -398,6 +445,17 @@
       <button class="fetch-btn" id="goBtn" onclick="go()">Fetch</button>
     </div>
 
+    <div id="audioFormatSection">
+      <div class="audio-format-group">
+        <button class="audio-fmt-btn active" data-audiofmt="mp3" onclick="setAudioFormat(this)">MP3</button>
+        <button class="audio-fmt-btn" data-audiofmt="aac" onclick="setAudioFormat(this)">AAC</button>
+        <button class="audio-fmt-btn" data-audiofmt="opus" onclick="setAudioFormat(this)">OPUS</button>
+        <button class="audio-fmt-btn" data-audiofmt="flac" onclick="setAudioFormat(this)">FLAC</button>
+        <button class="audio-fmt-btn" data-audiofmt="wav" onclick="setAudioFormat(this)">WAV</button>
+        <button class="audio-fmt-btn" data-audiofmt="m4a" onclick="setAudioFormat(this)">M4A</button>
+      </div>
+    </div>
+
     <div id="cards" class="cards"></div>
 
     <div class="footer">
@@ -409,12 +467,24 @@
 
   <script>
     let currentFormat = 'video';
+    let currentAudioFormat = 'mp3';
     let cardData = [];
 
     function setFormat(btn) {
       document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentFormat = btn.dataset.format;
+      // Show/hide audio format picker
+      document.getElementById('audioFormatSection').style.display =
+        currentFormat === 'audio' ? 'block' : 'none';
+      // Re-render all cards to update view
+      cardData.forEach((_, i) => renderCard(i));
+    }
+
+    function setAudioFormat(btn) {
+      document.querySelectorAll('.audio-fmt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentAudioFormat = btn.dataset.audiofmt;
     }
 
     function parseUrls(text) {
@@ -513,7 +583,6 @@
         document.getElementById('cards').appendChild(el);
       }
 
-      // Loading skeleton
       if (c.status === 'loading') {
         el.className = 'card';
         el.innerHTML = `
@@ -526,7 +595,6 @@
         return;
       }
 
-      // Error state
       if (c.status === 'info-error') {
         el.className = 'card card-error';
         el.innerHTML = `
@@ -544,7 +612,6 @@
         return;
       }
 
-      // Ready / downloading / done / error states
       el.className = 'card';
       const isAudio = currentFormat === 'audio';
 
@@ -557,16 +624,43 @@
         thumbHtml = `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
       }
 
-      let qualityChips = '';
+      // Build quality rows with codec sub-chips for video
+      let formatRows = '';
       if (!isAudio && c.formats && c.formats.length > 1) {
-        qualityChips = c.formats.map(f =>
-          `<button class="q-chip${f.id === c.selectedFormatId ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.label}</button>`
-        ).join('');
+        // Group formats by height
+        const byHeight = {};
+        c.formats.forEach(f => {
+          if (!byHeight[f.height]) byHeight[f.height] = [];
+          byHeight[f.height].push(f);
+        });
+
+        const heights = Object.keys(byHeight).map(Number).sort((a, b) => b - a);
+        formatRows = '<div class="format-rows">';
+
+        heights.forEach(h => {
+          const formats = byHeight[h];
+          // Resolution chip (first format of this height = best quality)
+          const primary = formats[0];
+          const isActive = primary.id === c.selectedFormatId;
+          formatRows += `<div class="format-row">`;
+          formatRows += `<button class="q-chip${isActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${primary.id}')">${primary.label}</button>`;
+          // Codec chips on next line if multiple codecs for this resolution
+          if (formats.length > 1) {
+            formatRows += `<div class="format-row">`;
+            formats.forEach(f => {
+              const isCodecActive = f.id === c.selectedFormatId;
+              formatRows += `<button class="codec-chip${isCodecActive ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.codec}</button>`;
+            });
+            formatRows += `</div>`;
+          }
+          formatRows += `</div>`;
+        });
+        formatRows += '</div>';
       }
 
       let actionHtml = '';
       if (c.status === 'ready') {
-        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${qualityChips}`;
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${formatRows}`;
       } else if (c.status === 'downloading') {
         actionHtml = `<span class="card-status downloading"><span class="spin"></span> Downloading...</span>`;
       } else if (c.status === 'done') {
@@ -617,6 +711,7 @@
             url: c.url,
             format: currentFormat,
             format_id: c.selectedFormatId,
+            audio_format: currentAudioFormat,
             title: c.title || '',
           }),
         });

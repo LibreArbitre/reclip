@@ -12,15 +12,18 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 jobs = {}
 
+AUDIO_FORMATS = ["mp3", "aac", "opus", "flac", "wav", "m4a"]
 
-def run_download(job_id, url, format_choice, format_id):
+
+def run_download(job_id, url, format_choice, format_id, audio_format="mp3"):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
     cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
 
     if format_choice == "audio":
-        cmd += ["-x", "--audio-format", "mp3"]
+        safe_audio_fmt = audio_format if audio_format in AUDIO_FORMATS else "mp3"
+        cmd += ["-x", "--audio-format", safe_audio_fmt]
     elif format_id:
         cmd += ["-f", f"{format_id}+bestaudio/best", "--merge-output-format", "mp4"]
     else:
@@ -42,7 +45,8 @@ def run_download(job_id, url, format_choice, format_id):
             return
 
         if format_choice == "audio":
-            target = [f for f in files if f.endswith(".mp3")]
+            safe_audio_fmt = audio_format if audio_format in AUDIO_FORMATS else "mp3"
+            target = [f for f in files if f.endswith(f".{safe_audio_fmt}")]
             chosen = target[0] if target else files[0]
         else:
             target = [f for f in files if f.endswith(".mp4")]
@@ -93,23 +97,26 @@ def get_info():
 
         info = json.loads(result.stdout)
 
-        # Build quality options — keep best format per resolution
+        # Build quality options — group by height, keep best per height+codec
         best_by_height = {}
         for f in info.get("formats", []):
             height = f.get("height")
             if height and f.get("vcodec", "none") != "none":
+                key = height
                 tbr = f.get("tbr") or 0
-                if height not in best_by_height or tbr > (best_by_height[height].get("tbr") or 0):
-                    best_by_height[height] = f
+                if key not in best_by_height or tbr > (best_by_height[key].get("tbr") or 0):
+                    best_by_height[key] = f
 
         formats = []
-        for height, f in best_by_height.items():
+        for height, f in sorted(best_by_height.items(), key=lambda x: x[0], reverse=True):
+            vcodec = f.get("vcodec", "none")
+            codec_label = vcodec.split(".")[0] if vcodec != "none" else ""
             formats.append({
                 "id": f["format_id"],
                 "label": f"{height}p",
                 "height": height,
+                "codec": codec_label,
             })
-        formats.sort(key=lambda x: x["height"], reverse=True)
 
         return jsonify({
             "title": info.get("title", ""),
@@ -130,15 +137,19 @@ def start_download():
     url = data.get("url", "").strip()
     format_choice = data.get("format", "video")
     format_id = data.get("format_id")
+    audio_format = data.get("audio_format", "mp3")
     title = data.get("title", "")
 
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
+    if audio_format not in AUDIO_FORMATS:
+        audio_format = "mp3"
+
     job_id = uuid.uuid4().hex[:10]
     jobs[job_id] = {"status": "downloading", "url": url, "title": title}
 
-    thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id))
+    thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id, audio_format))
     thread.daemon = True
     thread.start()
 
@@ -162,7 +173,7 @@ def download_file(job_id):
     job = jobs.get(job_id)
     if not job or job["status"] != "done":
         return jsonify({"error": "File not ready"}), 404
-    return send_file(job["file"], as_attachment=True, download_name=job["filename"])
+    return send_file(job["file"], as_attachment=True, download_name=job.get("filename"))
 
 
 if __name__ == "__main__":

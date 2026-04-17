@@ -12,12 +12,13 @@ https://github.com/user-attachments/assets/419d3e50-c933-444b-8cab-a9724986ba05
 ## Features
 
 - Download videos from 1000+ supported sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
-- MP4 video or MP3 audio extraction
-- Quality/resolution picker
+- MP4 video or audio extraction in multiple formats (MP3, AAC, OPUS, FLAC, WAV, M4A)
+- Quality/resolution picker with codec selection (AVC1, VP9, AV01)
 - Bulk downloads — paste multiple URLs at once
 - Automatic URL deduplication
 - Clean, responsive UI — no frameworks, no build step
-- Single Python file backend (~150 lines)
+- Cookie-based authentication for age-restricted or bot-protected videos
+- Single Python file backend (~200 lines)
 
 ## Quick Start
 
@@ -41,8 +42,22 @@ docker build -t reclip . && docker run -p 8899:8899 reclip
 1. Paste one or more video URLs into the input box
 2. Choose **MP4** (video) or **MP3** (audio)
 3. Click **Fetch** to load video info and thumbnails
-4. Select quality/resolution if available
+4. Select quality/resolution (and codec if multiple are available)
 5. Click **Download** on individual videos, or **Download All**
+
+### Cookies
+
+Some videos (especially on YouTube) require authentication. If a fetch fails with a "Sign in" error, a cookie upload option will appear.
+
+**Getting your YouTube cookies:**
+
+1. Install the **EditThisCookie** browser extension ([Chrome](https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg) / [Firefox](https://addons.mozilla.org/en-US/firefox/addon/editthiscookie-2/))
+2. Go to **youtube.com** and log in
+3. Click the EditThisCookie icon → **Export** (copies the cookie file to clipboard)
+4. Paste into a text file named `cookies.txt`
+5. Upload `cookies.txt` via the in-app button when prompted
+
+**Privacy:** Uploaded cookies are stored in RAM only (sessionStorage) and are never written to disk. They are automatically deleted when you close the browser tab. The server only handles them in-memory for the duration of the yt-dlp subprocess.
 
 ## Supported Sites
 

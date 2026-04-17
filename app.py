@@ -3,6 +3,7 @@ import uuid
 import glob
 import json
 import subprocess
+import tempfile
 import threading
 from flask import Flask, request, jsonify, send_file, render_template
 
@@ -13,6 +14,33 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 jobs = {}
 
 AUDIO_FORMATS = ["mp3", "aac", "opus", "flac", "wav", "m4a"]
+
+
+def _cookie_to_tmp(cookie_content):
+    """Write cookie content to a temp file, return path. Caller must clean up."""
+    if not cookie_content:
+        return None
+    fd, path = tempfile.mkstemp(suffix=".txt", prefix="reclip_cookies_")
+    try:
+        os.write(fd, cookie_content.encode("utf-8"))
+        os.close(fd)
+        return path
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        if os.path.exists(path):
+            os.remove(path)
+        return None
+
+
+def _cleanup_cookie(path):
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def run_download(job_id, url, format_choice, format_id, audio_format="mp3"):
@@ -90,8 +118,16 @@ def get_info():
         return jsonify({"error": "No URL provided"}), 400
 
     cmd = ["yt-dlp", "--no-playlist", "-j", url]
+    cookie_content = data.get("cookie")
+    cookie_path = None
+    if cookie_content:
+        cookie_path = _cookie_to_tmp(cookie_content)
+        if cookie_path:
+            cmd += ["--cookies", cookie_path]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if cookie_path:
+            _cleanup_cookie(cookie_path)
         if result.returncode != 0:
             return jsonify({"error": result.stderr.strip().split("\n")[-1]}), 400
 

@@ -419,6 +419,54 @@
       line-height: 1.8;
     }
 
+    /* Cookie banner */
+    #cookieSection { margin-top: 12px; }
+    .cookie-banner {
+      border: 1.5px solid rgba(232, 93, 42, 0.3);
+      border-radius: var(--radius);
+      background: rgba(232, 93, 42, 0.05);
+      padding: 12px 16px;
+    }
+    .cookie-banner-text {
+      font-size: 0.72rem;
+      color: var(--fg);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .cookie-banner-text a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .cookie-upload-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .cookie-upload-btn {
+      padding: 6px 14px;
+      border: 1.5px solid var(--accent);
+      border-radius: 7px;
+      background: transparent;
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cookie-upload-btn:hover { background: rgba(232, 93, 42, 0.1); }
+    .cookie-clear-btn {
+      padding: 6px 14px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cookie-clear-btn:hover { border-color: var(--muted); color: var(--fg); }
+
     @media (max-width: 500px) {
       .brand h1 { font-size: 3rem; }
       .page { padding: 40px 16px 60px; }
@@ -463,6 +511,21 @@
       </div>
     </div>
 
+    <div id="cookieSection" style="display:none">
+      <div class="cookie-banner">
+        <div class="cookie-banner-text">
+          <strong>Cookie required</strong> — This video needs authentication.
+          Cookies are stored in RAM only and deleted when you close this tab.
+          Never written to disk. &nbsp;<a href="https://github.com/LibreArbitre/reclip#cookies" target="_blank" rel="noopener">How to get a cookie</a>
+        </div>
+        <div class="cookie-upload-row">
+          <input type="file" id="cookieFile" accept=".txt" style="display:none" onchange="handleCookieFile(this)">
+          <button class="cookie-upload-btn" onclick="document.getElementById('cookieFile').click()">Choose cookies.txt</button>
+          <button class="cookie-clear-btn" id="cookieClearBtn" onclick="clearCookies()">Clear</button>
+        </div>
+      </div>
+    </div>
+
     <div id="cards" class="cards"></div>
 
     <div class="footer">
@@ -492,6 +555,39 @@
       document.querySelectorAll('.audio-fmt-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentAudioFormat = btn.dataset.audiofmt;
+    }
+
+    function needsCookie(err) {
+      if (!err) return false;
+      const lower = err.toLowerCase();
+      return lower.includes('sign in') || lower.includes('cookies') || lower.includes('bot') || lower.includes('http error 403') || lower.includes('http error 401') || lower.includes('unavailable');
+    }
+
+    function handleCookieFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        if (text.includes('.youtube.com') || text.includes('youtube')) {
+          sessionStorage.setItem('yt_cookie', text);
+          document.getElementById('cookieClearBtn').style.display = 'inline-block';
+          document.querySelector('.cookie-banner-text strong').textContent = 'Cookie loaded';
+        } else {
+          alert('This does not look like a YouTube cookie file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function clearCookies() {
+      sessionStorage.removeItem('yt_cookie');
+      document.getElementById('cookieClearBtn').style.display = 'none';
+      document.querySelector('.cookie-banner-text strong').textContent = 'Cookie required';
+    }
+
+    function getCookie() {
+      return sessionStorage.getItem('yt_cookie') || null;
     }
 
     function parseUrls(text) {
@@ -534,10 +630,24 @@
 
       const btn = document.getElementById('goBtn');
       const container = document.getElementById('cards');
+      const cookieSection = document.getElementById('cookieSection');
       btn.disabled = true;
       btn.textContent = 'Loading...';
       container.innerHTML = '';
       cardData = [];
+      cookieSection.style.display = 'none';
+
+      // Restore cookie UI if cookie already loaded
+      if (getCookie()) {
+        document.getElementById('cookieClearBtn').style.display = 'inline-block';
+        document.querySelector('.cookie-banner-text strong').textContent = 'Cookie loaded';
+      } else {
+        document.getElementById('cookieClearBtn').style.display = 'none';
+        document.querySelector('.cookie-banner-text strong').textContent = 'Cookie required';
+      }
+
+      let hasCookieError = false;
+      const cookie = getCookie();
 
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
@@ -546,13 +656,15 @@
         renderCard(idx);
 
         try {
+          const body = cookie ? JSON.stringify({ url, cookie }) : JSON.stringify({ url });
           const res = await fetch('/api/info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url }),
+            body,
           });
           const data = await res.json();
           if (data.error) {
+            if (needsCookie(data.error)) hasCookieError = true;
             cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.error };
           } else {
             cardData[idx] = {
@@ -567,9 +679,14 @@
             };
           }
         } catch (err) {
+          if (needsCookie(err.message)) hasCookieError = true;
           cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
         }
         renderCard(idx);
+      }
+
+      if (hasCookieError) {
+        cookieSection.style.display = 'block';
       }
 
       if (cardData.filter(c => c.status === 'ready').length > 1) {

@@ -36,7 +36,8 @@ def _cookie_to_tmp(cookie_content):
                 name = c.get("name", "")
                 value = c.get("value", "")
                 if domain and name:
-                    lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+                    http_only = "#HttpOnly_" if c.get("httpOnly", False) else ""
+                    lines.append(f"{http_only}{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
             cookie_content = "\n".join(lines)
     except (json.JSONDecodeError, ValueError, KeyError):
         pass  # Not JSON, assume already Netscape format

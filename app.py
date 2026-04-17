@@ -17,9 +17,28 @@ AUDIO_FORMATS = ["mp3", "aac", "opus", "flac", "wav", "m4a"]
 
 
 def _cookie_to_tmp(cookie_content):
-    """Write cookie content to a temp file, return path. Caller must clean up."""
+    """Write cookie content to a temp file in Netscape format, return path. Caller must clean up."""
     if not cookie_content:
         return None
+
+    # If JSON (EditThisCookie export), convert to Netscape format
+    try:
+        parsed = json.loads(cookie_content)
+        if isinstance(parsed, list):
+            lines = ["# Netscape HTTP Cookie File"]
+            for c in parsed:
+                domain = c.get("domain", "")
+                flag = "TRUE" if c.get("hostOnly", not domain.startswith(".")) else "FALSE"
+                path = c.get("path", "/")
+                secure = "TRUE" if c.get("secure", False) else "FALSE"
+                expiry = str(int(c.get("expirationDate", 0))) if c.get("expirationDate") else "0"
+                name = c.get("name", "")
+                value = c.get("value", "")
+                lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+            cookie_content = "\n".join(lines)
+    except (json.JSONDecodeError, ValueError, KeyError):
+        pass  # Not JSON, assume already Netscape format
+
     fd, path = tempfile.mkstemp(suffix=".txt", prefix="reclip_cookies_")
     try:
         os.write(fd, cookie_content.encode("utf-8"))

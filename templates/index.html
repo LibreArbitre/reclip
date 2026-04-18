@@ -170,6 +170,18 @@
     }
     .audio-fmt-btn:not(.active):hover { border-color: var(--muted); }
 
+    /* Advanced formats toggle */
+    .audio-advanced-toggle {
+      border-style: dashed;
+      opacity: 0.7;
+    }
+    .audio-advanced-toggle:hover { opacity: 1; }
+    .audio-advanced-toggle.active {
+      border-color: var(--fg);
+      color: var(--fg);
+      opacity: 1;
+    }
+
     /* Video audio toggle button */
     .audio-toggle-btn {
       padding: 6px 12px;
@@ -522,9 +534,15 @@
         <button class="audio-fmt-btn active" data-audiofmt="mp3" onclick="setAudioFormat(this)">MP3</button>
         <button class="audio-fmt-btn" data-audiofmt="aac" onclick="setAudioFormat(this)">AAC</button>
         <button class="audio-fmt-btn" data-audiofmt="opus" onclick="setAudioFormat(this)">OPUS</button>
-        <button class="audio-fmt-btn" data-audiofmt="flac" onclick="setAudioFormat(this)">FLAC</button>
-        <button class="audio-fmt-btn" data-audiofmt="wav" onclick="setAudioFormat(this)">WAV</button>
         <button class="audio-fmt-btn" data-audiofmt="m4a" onclick="setAudioFormat(this)">M4A</button>
+        <button class="audio-fmt-btn audio-advanced-toggle" onclick="toggleAdvancedFormats()">+ Advanced</button>
+      </div>
+      <div id="advancedFormats" style="display:none; margin-top:6px;">
+        <div class="audio-format-group">
+          <button class="audio-fmt-btn" data-audiofmt="flac" onclick="setAudioFormat(this)">FLAC</button>
+          <button class="audio-fmt-btn" data-audiofmt="wav" onclick="setAudioFormat(this)">WAV</button>
+        </div>
+        <p class="hint" style="margin-top:4px;">⚠️ Lossless formats won't improve quality from lossy sources.</p>
       </div>
     </div>
 
@@ -581,9 +599,18 @@
     }
 
     function setAudioFormat(btn) {
-      document.querySelectorAll('.audio-fmt-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.audio-fmt-btn:not(.audio-advanced-toggle)').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentAudioFormat = btn.dataset.audiofmt;
+    }
+
+    function toggleAdvancedFormats() {
+      const section = document.getElementById('advancedFormats');
+      const btn = document.querySelector('.audio-advanced-toggle');
+      const isHidden = section.style.display === 'none';
+      section.style.display = isHidden ? 'block' : 'none';
+      btn.textContent = isHidden ? '− Advanced' : '+ Advanced';
+      btn.classList.toggle('active', isHidden);
     }
 
     function toggleVideoAudio() {

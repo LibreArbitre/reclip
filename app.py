@@ -70,7 +70,7 @@ def _cleanup_cookie(path):
             pass
 
 
-def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cookie_content=None):
+def run_download(job_id, url, format_choice, format_id, audio_format="mp3", audio_format_id=None, cookie_content=None):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
@@ -87,7 +87,11 @@ def run_download(job_id, url, format_choice, format_id, audio_format="mp3", cook
         safe_audio_fmt = audio_format if audio_format in AUDIO_FORMATS else "mp3"
         cmd += ["-x", "--audio-format", safe_audio_fmt]
     elif format_id:
-        cmd += ["-f", f"{format_id}+bestaudio/best", "--merge-output-format", "mp4"]
+        # Use specific audio format ID if provided, otherwise fallback to bestaudio
+        if audio_format_id:
+            cmd += ["-f", f"{format_id}+{audio_format_id}/best", "--merge-output-format", "mp4"]
+        else:
+            cmd += ["-f", f"{format_id}+bestaudio/best", "--merge-output-format", "mp4"]
     else:
         cmd += ["-f", "bestvideo+bestaudio/best", "--merge-output-format", "mp4"]
 
@@ -190,12 +194,36 @@ def get_info():
                 "codec": codec_label,
             })
 
+        # Build audio-only format options
+        audio_formats = []
+        seen_audio = set()
+        for f in info.get("formats", []):
+            vcodec = f.get("vcodec", "none")
+            acodec = f.get("acodec", "none")
+            if vcodec == "none" and acodec != "none":
+                abr = f.get("abr") or f.get("tbr") or 0
+                # Group by codec+abr (avoid duplicates)
+                key = (acodec, int(abr))
+                if key not in seen_audio:
+                    seen_audio.add(key)
+                    label = f"{acodec}" if abr == 0 else f"{acodec} {int(abr)}kb"
+                    audio_formats.append({
+                        "id": f["format_id"],
+                        "codec": acodec,
+                        "abr": int(abr) if abr else 0,
+                        "label": label,
+                    })
+
+        # Sort by bitrate descending
+        audio_formats.sort(key=lambda x: -x["abr"])
+
         return jsonify({
             "title": info.get("title", ""),
             "thumbnail": info.get("thumbnail", ""),
             "duration": info.get("duration"),
             "uploader": info.get("uploader", ""),
             "formats": formats,
+            "audio_formats": audio_formats,
         })
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Timed out fetching video info"}), 400
@@ -210,6 +238,7 @@ def start_download():
     format_choice = data.get("format", "video")
     format_id = data.get("format_id")
     audio_format = data.get("audio_format", "mp3")
+    audio_format_id = data.get("audio_format_id")
     title = data.get("title", "")
     cookie_content = data.get("cookie")
 
@@ -224,7 +253,7 @@ def start_download():
 
     thread = threading.Thread(
         target=run_download,
-        args=(job_id, url, format_choice, format_id, audio_format, cookie_content),
+        args=(job_id, url, format_choice, format_id, audio_format, audio_format_id, cookie_content),
     )
     thread.daemon = True
     thread.start()

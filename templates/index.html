@@ -170,6 +170,23 @@
     }
     .audio-fmt-btn:not(.active):hover { border-color: var(--muted); }
 
+    /* Video audio toggle button */
+    .audio-toggle-btn {
+      padding: 6px 12px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .audio-toggle-btn:hover { border-color: var(--fg); color: var(--fg); }
+    .audio-toggle-btn.active { border-color: var(--accent); color: var(--accent); }
+
     /* Cards */
     .cards { margin-top: 24px; }
 
@@ -511,6 +528,16 @@
       </div>
     </div>
 
+    <!-- Collapsible audio options for video downloads -->
+    <div id="videoAudioSection" style="display:none; margin-top:8px;">
+      <button class="audio-toggle-btn" onclick="toggleVideoAudio()">
+        <span id="audioToggleIcon">+</span> Audio options
+      </button>
+      <div id="videoAudioPicker" style="display:none; margin-top:6px;">
+        <div class="audio-format-group" id="videoAudioFormats"></div>
+      </div>
+    </div>
+
     <div id="authSection" style="display:none">
       <div class="auth-banner">
         <div class="auth-banner-text">
@@ -538,6 +565,8 @@
   <script>
     let currentFormat = 'video';
     let currentAudioFormat = 'mp3';
+    let currentVideoAudioFormatId = null;
+    let videoAudioExpanded = false;
     let cardData = [];
 
     function setFormat(btn) {
@@ -546,6 +575,8 @@
       currentFormat = btn.dataset.format;
       document.getElementById('audioFormatSection').style.display =
         currentFormat === 'audio' ? 'block' : 'none';
+      document.getElementById('videoAudioSection').style.display =
+        currentFormat === 'video' ? 'block' : 'none';
       cardData.forEach((_, i) => renderCard(i));
     }
 
@@ -553,6 +584,41 @@
       document.querySelectorAll('.audio-fmt-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentAudioFormat = btn.dataset.audiofmt;
+    }
+
+    function toggleVideoAudio() {
+      videoAudioExpanded = !videoAudioExpanded;
+      const picker = document.getElementById('videoAudioPicker');
+      const icon = document.getElementById('audioToggleIcon');
+      const btn = document.querySelector('.audio-toggle-btn');
+      picker.style.display = videoAudioExpanded ? 'block' : 'none';
+      icon.textContent = videoAudioExpanded ? '−' : '+';
+      btn.classList.toggle('active', videoAudioExpanded);
+    }
+
+    function setVideoAudioFormat(btn, formatId) {
+      document.querySelectorAll('#videoAudioFormats .audio-fmt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentVideoAudioFormatId = formatId;
+    }
+
+    function populateVideoAudioPicker(audioFormats) {
+      const container = document.getElementById('videoAudioFormats');
+      container.innerHTML = '';
+      // Add a "Best (auto)" option first
+      const bestBtn = document.createElement('button');
+      bestBtn.className = 'audio-fmt-btn active';
+      bestBtn.textContent = 'Best (auto)';
+      bestBtn.onclick = function() { setVideoAudioFormat(this, null); }; 
+      container.appendChild(bestBtn);
+      // Add each audio format option
+      audioFormats.forEach(f => {
+        const btn = document.createElement('button');
+        btn.className = 'audio-fmt-btn';
+        btn.textContent = f.label;
+        btn.onclick = function() { setVideoAudioFormat(this, f.id); }; 
+        container.appendChild(btn);
+      });
     }
 
     function needsAuth(err) {
@@ -675,6 +741,7 @@
               duration: data.duration,
               uploader: data.uploader || '',
               formats: data.formats || [],
+              audio_formats: data.audio_formats || [],
               selectedFormatId: data.formats?.[0]?.id || null,
             };
           }
@@ -683,6 +750,12 @@
           cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
         }
         renderCard(idx);
+      }
+
+      // Populate video audio format picker if we have audio_formats
+      const firstCard = cardData.find(c => c.audio_formats && c.audio_formats.length > 0);
+      if (firstCard && firstCard.audio_formats.length > 0) {
+        populateVideoAudioPicker(firstCard.audio_formats);
       }
 
       if (hasAuthError) {
@@ -839,6 +912,7 @@
             format: currentFormat,
             format_id: c.selectedFormatId,
             audio_format: currentAudioFormat,
+            audio_format_id: currentFormat === 'video' ? currentVideoAudioFormatId : null,
             title: c.title || '',
             cookie: getAuth(),
           }),

@@ -756,6 +756,10 @@
       const firstCard = cardData.find(c => c.audio_formats && c.audio_formats.length > 0);
       if (firstCard && firstCard.audio_formats.length > 0) {
         populateVideoAudioPicker(firstCard.audio_formats);
+        // Auto-show audio options for video mode on first fetch
+        if (currentFormat === 'video') {
+          document.getElementById('videoAudioSection').style.display = 'block';
+        }
       }
 
       if (hasAuthError) {

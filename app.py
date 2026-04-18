@@ -194,28 +194,36 @@ def get_info():
                 "codec": codec_label,
             })
 
-        # Build audio-only format options
+        # Build audio-only format options — deduplicate by codec, keep best bitrate
         audio_formats = []
-        seen_audio = set()
+        codec_best = {}  # track best bitrate per codec
         for f in info.get("formats", []):
             vcodec = f.get("vcodec", "none")
             acodec = f.get("acodec", "none")
             if vcodec == "none" and acodec != "none":
                 abr = f.get("abr") or f.get("tbr") or 0
-                # Group by codec+abr (avoid duplicates)
-                key = (acodec, int(abr))
-                if key not in seen_audio:
-                    seen_audio.add(key)
-                    label = f"{acodec}" if abr == 0 else f"{acodec} {int(abr)}kb"
-                    audio_formats.append({
+                # Normalize codec name (opus, mp4a, etc)
+                codec_key = acodec.lower().split(".")[0] if acodec else "unknown"
+                # Keep only the best bitrate per codec
+                if codec_key not in codec_best or abr > codec_best[codec_key]["abr"]:
+                    codec_best[codec_key] = {
                         "id": f["format_id"],
-                        "codec": acodec,
+                        "codec": codec_key,
                         "abr": int(abr) if abr else 0,
-                        "label": label,
-                    })
+                    }
 
-        # Sort by bitrate descending
-        audio_formats.sort(key=lambda x: -x["abr"])
+        # Build clean list (max 4-5 options)
+        for codec_key, data in sorted(codec_best.items(), key=lambda x: -x[1]["abr"]):
+            label = f"{codec_key}" if data["abr"] == 0 else f"{codec_key} {data['abr']}kb"
+            audio_formats.append({
+                "id": data["id"],
+                "codec": codec_key,
+                "abr": data["abr"],
+                "label": label,
+            })
+
+        # Limit to top 4 options
+        audio_formats = audio_formats[:4]
 
         return jsonify({
             "title": info.get("title", ""),
